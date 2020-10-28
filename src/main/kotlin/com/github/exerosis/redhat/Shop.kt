@@ -4,9 +4,10 @@ import java.text.NumberFormat
 
 
 val FORMAT_CURRENCY = NumberFormat.getCurrencyInstance()!!
+//discounts can actually manage to be implemented in these functors.
 val PRICES = mapOf<String, (Int) -> (Double)>(
-    "apple" to { it * 0.60 },
-    "orange" to { it * 0.25 }
+    "apple" to { it / 2 * 0.60 + it % 2 * 0.60 },
+    "orange" to { it / 3 * 0.50 + it % 3 * 0.25 }
 )
 //map orders to responses. (using caps to represent "class like" functionality)
 fun Shop(onOrder: Observable<Sequence<String>>): Observable<String> = { listener ->
