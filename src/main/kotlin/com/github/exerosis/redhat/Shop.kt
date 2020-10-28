@@ -1,23 +1,23 @@
 package com.github.exerosis.redhat
 
-import java.text.NumberFormat
-
-
-val FORMAT_CURRENCY = NumberFormat.getCurrencyInstance()!!
-//discounts can actually manage to be implemented in these functors.
 val PRICES = mapOf<String, (Int) -> (Double)>(
     "apple" to { it / 2 * 0.60 + it % 2 * 0.60 },
     "orange" to { it / 3 * 0.50 + it % 3 * 0.25 }
 )
-//map orders to responses. (using caps to represent "class like" functionality)
-fun Shop(onOrder: Observable<Sequence<String>>): Observable<String> = { listener ->
-   onOrder { items ->
-       listener(try { //FIXME if given more time, perhaps don't use try as logic.
-           //group by the price functor then sum by that functor and group count
-           FORMAT_CURRENCY.format(items.groupBy {
-               PRICES[it.toLowerCase()] ?: throw Exception("Could not find item: $it")
-           }.asSequence().sumByDouble { (price, group) -> price(group.size) })
-           //alternatively something failed (likely finding the item)
-       } catch (reason: Throwable) { reason.message ?: "failed" })
-   }
+fun Shop() {
+    val onOrderVerified = ArrayEvent<(Order, Items) -> (Unit)>()
+    val onStatusUpdated = ArrayEvent<(Order, Status) -> (Unit)>()
+    ProcessingService(onOrderVerified)(onStatusUpdated::invoke)
+    NotificationService(onStatusUpdated)
+    OrderingService()() { order, items ->
+        try {
+            val cost = items.groupBy {
+                PRICES[it.toLowerCase()] ?: throw Exception("Could not find item: $it")
+            }.asSequence().sumByDouble { (price, group) -> price(group.size) }
+            onStatusUpdated.invoke(order, Status.Invoiced(cost))
+            onOrderVerified(order, items)
+        } catch (reason: Throwable) {
+            onStatusUpdated(order, Status.Rejected(reason.message!!))
+        }
+    }
 }
